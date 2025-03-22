@@ -48,17 +48,12 @@ void float_args_free(arguments *arg_container) {
     for (i = 0; i < arg_container->float_count; i++) {
       if (arg_container->float_args[i]->name) {
         free(arg_container->float_args[i]->name);
-        arg_container->float_args[i]->name = NULL;
       }
       if (arg_container->float_args[i]->description) {
         free(arg_container->float_args[i]->description);
-        arg_container->float_args[i]->description = NULL;
       }
-      free(arg_container->float_args[i]);
-      arg_container->float_args[i] = NULL;
     }
     free(arg_container->float_args);
-    arg_container->float_args = NULL;
   }
 }
 
@@ -68,17 +63,13 @@ void bool_args_free(arguments *arg_container) {
     for (i = 0; i < arg_container->bool_count; i++) {
       if (arg_container->bool_args[i]->name) {
         free(arg_container->bool_args[i]->name);
-        arg_container->bool_args[i]->name = NULL;
       }
       if (arg_container->bool_args[i]->description) {
         free(arg_container->bool_args[i]->description);
-        arg_container->bool_args[i]->description = NULL;
       }
       free(arg_container->bool_args[i]);
-      arg_container->bool_args[i] = NULL;
     }
     free(arg_container->bool_args);
-    arg_container->bool_args = NULL;
   }
 }
 
@@ -88,36 +79,30 @@ void string_args_free(arguments *arg_container) {
     for (i = 0; i < arg_container->string_count; i++) {
       if (arg_container->string_args[i]->name) {
         free(arg_container->string_args[i]->name);
-        arg_container->string_args[i]->name = NULL;
       }
       if (arg_container->string_args[i]->description) {
         free(arg_container->string_args[i]->description);
-        arg_container->string_args[i]->description = NULL;
       }
       if (arg_container->string_args[i]->value) {
         free(arg_container->string_args[i]->value);
-        arg_container->string_args[i]->value = NULL;
       }
       if (arg_container->string_args[i]->default_value) {
         free(arg_container->string_args[i]->default_value);
-        arg_container->string_args[i]->default_value = NULL;
       }
       free(arg_container->string_args[i]);
-      arg_container->string_args[i] = NULL;
     }
     free(arg_container->string_args);
-    arg_container->string_args = NULL;
   }
 }
 
 void args_container_free(arguments *arg_container) {
+  int i;
   if (arg_container) {
     int_args_free(arg_container);
     float_args_free(arg_container);
     bool_args_free(arg_container);
     string_args_free(arg_container);
     free(arg_container);
-    arg_container = NULL;
   }
 }
 
@@ -144,6 +129,7 @@ void add_int_arg(arguments *arg_container, char short_name, char *name,
           strcpy(arg_container->int_args[arg_container->int_count - 1]
                      ->description,
                  description);
+          arg_container->int_args[arg_container->int_count - 1]->is_set = 0;
         }
       }
     }
@@ -174,6 +160,7 @@ void add_float_arg(arguments *arg_container, char short_name, char *name,
           strcpy(arg_container->float_args[arg_container->float_count - 1]
                      ->description,
                  description);
+          arg_container->float_args[arg_container->float_count - 1]->is_set = 0;
         }
       }
     }
@@ -206,6 +193,8 @@ void add_bool_arg(arguments *arg_container, char short_name, char *name,
           strcpy(arg_container->bool_args[arg_container->bool_count - 1]
                      ->description,
                  description);
+          arg_container->bool_args[arg_container->bool_count - 1]->value = -1;
+          arg_container->bool_args[arg_container->bool_count - 1]->is_set = 0;
         }
       }
     }
@@ -245,6 +234,8 @@ void add_string_arg(arguments *arg_container, char short_name, char *name,
             strcpy(arg_container->string_args[arg_container->string_count - 1]
                        ->description,
                    description);
+            arg_container->string_args[arg_container->string_count - 1]
+                ->is_set = 0;
           }
         }
       }
@@ -339,13 +330,13 @@ char *get_string_arg(char *name, arguments *arg_container) {
 int argument_parse(arguments *arg_container, int argc, char *argv[]) {
   int i, k;
   int bool_val;
-  int code;
+  int code = 1;
   if (argc != 1) {
     for (i = 1; i < argc; i++) {
       if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--help") == 0) {
         printf("%s help:\n", argv[0]);
         LINE;
-        printf("| Option  | Short | Long Option      | Default Value | "
+        printf("| Option  | Short |      Long Option | Default Value | "
                "Description                     |\n");
         LINE;
 
@@ -383,63 +374,169 @@ int argument_parse(arguments *arg_container, int argc, char *argv[]) {
         LINE;
         exit(0);
       } else if (argv[i][0] == '-') {
-        if (argv[i + 1] != NULL) {
+        if (strlen(argv[i]) > 1 && argv[i][1] == '-') {
           for (k = 0; k < arg_container->int_count; k++) {
-            if (arg_container->int_args[k]->short_name == argv[i][1]) {
-              arg_container->int_args[k]->value = atoi(argv[i + 1]);
-            } else {
-              arg_container->int_args[k]->value =
-                  arg_container->int_args[k]->default_value;
+            if (strcmp(argv[i] + 2, arg_container->int_args[k]->name) == 0) {
+              if (i + 1 < argc && argv[i + 1][0] != '-') {
+                arg_container->int_args[k]->value = atoi(argv[i + 1]);
+                arg_container->int_args[k]->is_set = 1;
+                i++;
+              } else {
+                printf("Missing value for option: %s\n",
+                       arg_container->int_args[k]->name);
+                code = 0;
+              }
+              break;
             }
           }
           for (k = 0; k < arg_container->float_count; k++) {
-            if (arg_container->float_args[k]->short_name == argv[i][1]) {
-              arg_container->float_args[k]->value = atof(argv[i + 1]);
-            } else {
-              arg_container->float_args[k]->value =
-                  arg_container->float_args[k]->default_value;
+            if (strcmp(argv[i] + 2, arg_container->float_args[k]->name) == 0) {
+              if (i + 1 < argc && argv[i + 1][0] != '-') {
+                arg_container->float_args[k]->value = atof(argv[i + 1]);
+                arg_container->float_args[k]->is_set = 1;
+                i++;
+              } else {
+                printf("Missing value for option: %s\n",
+                       arg_container->float_args[k]->name);
+                code = 0;
+              }
+              break;
             }
           }
           for (k = 0; k < arg_container->bool_count; k++) {
-            if (arg_container->bool_args[k]->short_name == argv[i][1]) {
-              bool_val = atoi(argv[i + 1]);
-              if (bool_val == 1 || bool_val == 0)
-                arg_container->bool_args[k]->value = bool_val;
-              else {
-                puts("Bool values might be \"1\" or \"0\".");
+            if (strcmp(argv[i] + 2, arg_container->bool_args[k]->name) == 0) {
+              if (i + 1 < argc && argv[i + 1][0] != '-') {
+                int bool_val = atoi(argv[i + 1]);
+                if (bool_val == 1 || bool_val == 0) {
+                  arg_container->bool_args[k]->value = bool_val;
+                  arg_container->bool_args[k]->is_set = 1;
+                } else {
+                  puts("Bool values might be \"1\" or \"0\".");
+                  code = 0;
+                }
+                i++;
+              } else {
+                printf("Missing value for option: %s\n",
+                       arg_container->bool_args[k]->name);
                 code = 0;
               }
-            } else {
-              arg_container->bool_args[k]->value =
-                  arg_container->bool_args[k]->default_value;
+              break;
             }
           }
           for (k = 0; k < arg_container->string_count; k++) {
-            if (arg_container->string_args[k]->short_name == argv[i][1]) {
-              if ((arg_container->string_args[k]->value = (char *)malloc(
-                       sizeof(char) * strlen(argv[i]))) != NULL) {
-                strcpy(arg_container->string_args[k]->value, argv[i]);
-              }
-            } else {
-              if ((arg_container->string_args[k]->value = (char *)malloc(
-                       sizeof(char) *
-                       strlen(arg_container->string_args[k]->default_value))) !=
-                  NULL) {
-                strcpy(arg_container->string_args[k]->value,
-                       arg_container->string_args[k]->default_value);
+            if (strcmp(argv[i] + 2, arg_container->string_args[k]->name) == 0) {
+              if (i + 1 < argc && argv[i + 1][0] != '-') {
+                if ((arg_container->string_args[k]->value = (char *)malloc(
+                         sizeof(char) * (strlen(argv[i + 1]) + 1))) != NULL) {
+                  strcpy(arg_container->string_args[k]->value, argv[i + 1]);
+                  arg_container->string_args[k]->is_set = 1;
+                }
+                i++;
+              } else {
+                printf("Missing value for option: %s\n",
+                       arg_container->string_args[k]->name);
+                code = 0;
               }
             }
           }
-          code = 1;
         } else {
-          puts("-h to help");
-          code = 0;
+          for (k = 0; k < arg_container->int_count; k++) {
+            if (arg_container->int_args[k]->short_name == argv[i][1]) {
+              if (i + 1 < argc && argv[i + 1][0] != '-') {
+                arg_container->int_args[k]->value = atoi(argv[i + 1]);
+                arg_container->int_args[k]->is_set = 1;
+                i++;
+              } else {
+                printf("Missing value for option: %s\n",
+                       arg_container->int_args[k]->name);
+                code = 0;
+              }
+            }
+          }
+        }
+        for (k = 0; k < arg_container->float_count; k++) {
+          if (arg_container->float_args[k]->short_name == argv[i][1]) {
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+              arg_container->float_args[k]->value = atof(argv[i + 1]);
+              arg_container->float_args[k]->is_set = 1;
+              i++;
+            } else {
+              printf("Missing value for option: %s\n",
+                     arg_container->float_args[k]->name);
+              code = 0;
+            }
+          }
+        }
+        for (k = 0; k < arg_container->bool_count; k++) {
+          if (arg_container->bool_args[k]->short_name == argv[i][1]) {
+            bool_val = atoi(argv[i + 1]);
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+              int bool_val = atoi(argv[i + 1]);
+              if (bool_val == 1 || bool_val == 0) {
+                arg_container->bool_args[k]->value = bool_val;
+                arg_container->bool_args[k]->is_set = 1;
+              } else {
+                puts("Bool values might be \"1\" or \"0\".");
+                code = 0;
+              }
+              i++;
+            } else {
+              printf("Missing value for option: %s\n",
+                     arg_container->bool_args[k]->name);
+              code = 0;
+            }
+          }
+        }
+        for (k = 0; k < arg_container->string_count; k++) {
+          if (arg_container->string_args[k]->short_name == argv[i][1]) {
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+              if ((arg_container->string_args[k]->value = (char *)malloc(
+                       sizeof(char) * (strlen(argv[i + 1]) + 1))) != NULL) {
+                strcpy(arg_container->string_args[k]->value, argv[i + 1]);
+                arg_container->string_args[k]->is_set = 1;
+              }
+              i++;
+            } else {
+              printf("Missing value for option: %s\n",
+                     arg_container->string_args[k]->name);
+              code = 0;
+            }
+          }
         }
       }
     }
   } else {
     puts("-h to help");
     code = 0;
+  }
+  for (k = 0; k < arg_container->int_count; k++) {
+    if (arg_container->int_args[k]->is_set == 0) {
+      arg_container->int_args[k]->value =
+          arg_container->int_args[k]->default_value;
+    }
+  }
+  for (k = 0; k < arg_container->float_count; k++) {
+    if (arg_container->float_args[k]->is_set == 0) {
+      arg_container->float_args[k]->value =
+          arg_container->float_args[k]->default_value;
+    }
+  }
+  for (k = 0; k < arg_container->bool_count; k++) {
+    if (arg_container->bool_args[k]->is_set == 0) {
+      arg_container->bool_args[k]->value =
+          arg_container->bool_args[k]->default_value;
+    }
+  }
+  for (k = 0; k < arg_container->string_count; k++) {
+    if (arg_container->string_args[k]->is_set == 0) {
+      if ((arg_container->string_args[k]->value = (char *)malloc(
+               sizeof(char) *
+               (strlen(arg_container->string_args[k]->default_value) + 1))) !=
+          NULL) {
+        strcpy(arg_container->string_args[k]->value,
+               arg_container->string_args[k]->default_value);
+      }
+    }
   }
   return code;
 }

@@ -8,6 +8,7 @@ typedef struct int_arg {
     char *name;
     int default_value;
     char *description;
+    int is_set;
 
 } int_arg;
 
@@ -17,6 +18,7 @@ typedef struct float_arg {
     char *name;
     float default_value;
     char *description;
+    int is_set;
 
 } float_arg;
 
@@ -26,6 +28,7 @@ typedef struct string_arg {
     char *name;
     char *default_value;
     char *description;
+    int is_set;
 
 } string_arg;
 
@@ -35,6 +38,7 @@ typedef struct bool_arg {
     char *name;
     int default_value;
     char *description;
+    int is_set;
 } bool_arg;
 
 typedef struct args {
